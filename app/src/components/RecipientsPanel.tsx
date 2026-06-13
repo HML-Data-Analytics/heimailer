@@ -1,41 +1,33 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef } from "react";
 import { useCampaign } from "../state/campaign";
 import type { Recipient, RowValidation, SendStatus } from "../types";
-import { importFile, ImportError, parsePastedText } from "../lib/importer";
-import {
-  downloadTemplateCsv,
-  downloadTemplateXlsx,
-  exportRecipientsCsv,
-  exportRecipientsXlsx,
-} from "../lib/exporter";
-import { useClickOutside } from "../lib/ui";
+import { importFile, ImportError } from "../lib/importer";
+import { downloadTemplateXlsx, exportRecipientsXlsx } from "../lib/exporter";
 import {
   CheckIcon,
-  ChevronIcon,
   DownloadIcon,
-  FileIcon,
+  ExportIcon,
+  ImportIcon,
   InboxIcon,
   PlusIcon,
   RefreshIcon,
   TrashIcon,
-  UploadIcon,
   UsersIcon,
 } from "./icons";
 import GroupMenu from "./GroupMenu";
 
 export default function RecipientsPanel() {
   const { recipients, counts, validation } = useCampaign();
-  const [pasteOpen, setPasteOpen] = useState(false);
 
   return (
-    <section className="card">
+    <section className="card recipients-card">
       <div className="card__head">
         <span className="card__icon">
           <UsersIcon />
         </span>
         <div className="card__titles">
           <h2>Recipients</h2>
-          <p>Add people, paste a list, or import a file — edit any cell inline, then send.</p>
+          <p>Add people or import a file — edit any cell inline, then send.</p>
         </div>
         <div className="card__head-actions">
           <GroupMenu />
@@ -44,12 +36,11 @@ export default function RecipientsPanel() {
       <div className="divider" />
 
       <div className="card__body">
-        <Toolbar onPaste={() => setPasteOpen(true)} />
-
         {recipients.length === 0 ? (
-          <EmptyState onPaste={() => setPasteOpen(true)} />
+          <EmptyState />
         ) : (
           <>
+            <Toolbar />
             <div className="counts">
               <span className="count"><b>{counts.total}</b> total</span>
               <span className="count count--ok"><b>{counts.sendable}</b> ready</span>
@@ -67,14 +58,12 @@ export default function RecipientsPanel() {
           </>
         )}
       </div>
-
-      {pasteOpen && <PasteModal onClose={() => setPasteOpen(false)} />}
     </section>
   );
 }
 
 /* ---------------- Toolbar ---------------- */
-function Toolbar({ onPaste }: { onPaste: () => void }) {
+function Toolbar() {
   const {
     counts,
     recipients,
@@ -120,68 +109,19 @@ function Toolbar({ onPaste }: { onPaste: () => void }) {
       <button className="btn btn--primary btn--sm" onClick={addBlankRow}>
         <PlusIcon size={15} /> Add row
       </button>
-      <button className="btn btn--ghost btn--sm" onClick={onPaste}>
-        <FileIcon size={15} /> Paste list
+      <button className="btn btn--ghost btn--sm" onClick={() => fileRef.current?.click()} title="Import .xlsx or .csv">
+        <ImportIcon size={15} /> Import
       </button>
-
-      <Dropdown
-        label={
-          <>
-            <UploadIcon size={15} /> Import <ChevronIcon size={13} />
-          </>
-        }
-      >
-        {(close) => (
-          <>
-            <div className="menu__title">From file</div>
-            <button
-              className="menu__row"
-              onClick={() => {
-                close();
-                fileRef.current?.click();
-              }}
-            >
-              <UploadIcon size={15} />
-              <span className="name">Import .xlsx / .csv…</span>
-            </button>
-            <div className="menu__title">Get a template</div>
-            <button className="menu__row" onClick={() => { close(); downloadTemplateXlsx(); }}>
-              <DownloadIcon size={15} />
-              <span className="name">Excel template (.xlsx)</span>
-            </button>
-            <button className="menu__row" onClick={() => { close(); downloadTemplateCsv(); }}>
-              <DownloadIcon size={15} />
-              <span className="name">CSV template (.csv)</span>
-            </button>
-          </>
-        )}
-      </Dropdown>
+      <button className="btn btn--ghost btn--sm" onClick={() => downloadTemplateXlsx()} title="Download a blank Excel template">
+        <DownloadIcon size={15} /> Get template
+      </button>
+      {hasRecipients && (
+        <button className="btn btn--ghost btn--sm" onClick={() => exportRecipientsXlsx(recipients)} title="Export the list as Excel">
+          <ExportIcon size={15} /> Export
+        </button>
+      )}
 
       <div className="toolbar__spacer" />
-
-      {hasRecipients && (
-        <Dropdown
-          label={
-            <>
-              <DownloadIcon size={15} /> Export <ChevronIcon size={13} />
-            </>
-          }
-        >
-          {(close) => (
-            <>
-              <div className="menu__title">Current list</div>
-              <button className="menu__row" onClick={() => { close(); exportRecipientsXlsx(recipients); }}>
-                <DownloadIcon size={15} />
-                <span className="name">Export as Excel (.xlsx)</span>
-              </button>
-              <button className="menu__row" onClick={() => { close(); exportRecipientsCsv(recipients); }}>
-                <DownloadIcon size={15} />
-                <span className="name">Export as CSV (.csv)</span>
-              </button>
-            </>
-          )}
-        </Dropdown>
-      )}
 
       {counts.invalidEmail + counts.missingName > 0 && (
         <button
@@ -212,27 +152,6 @@ function Toolbar({ onPaste }: { onPaste: () => void }) {
           </button>
         </>
       )}
-    </div>
-  );
-}
-
-/* ---------------- Generic dropdown ---------------- */
-function Dropdown({
-  label,
-  children,
-}: {
-  label: ReactNode;
-  children: (close: () => void) => ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
-  useClickOutside(wrap, () => setOpen(false), open);
-  return (
-    <div className="menu-wrap" ref={wrap}>
-      <button className="btn btn--ghost btn--sm" onClick={() => setOpen((o) => !o)}>
-        {label}
-      </button>
-      {open && <div className="menu" style={{ width: 240 }}>{children(() => setOpen(false))}</div>}
     </div>
   );
 }
@@ -354,65 +273,8 @@ function sendPill(status: SendStatus, error?: string) {
   }
 }
 
-/* ---------------- Paste modal ---------------- */
-function PasteModal({ onClose }: { onClose: () => void }) {
-  const { addManyManual, notify } = useCampaign();
-  const [text, setText] = useState("");
-  const preview = parsePastedText(text);
-
-  function add() {
-    if (preview.length === 0) {
-      notify("info", "Nothing to add", "Paste at least one line with an email address.");
-      return;
-    }
-    addManyManual(preview);
-    notify("success", "Recipients added", `Added ${preview.length} from pasted text.`);
-    onClose();
-  }
-
-  return (
-    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Paste recipients" style={{ maxWidth: 560 }}>
-        <div className="modal__bar">
-          <span className="modal__title" style={{ marginLeft: 0 }}>Paste recipients</span>
-          <button className="modal__close" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
-        </div>
-        <div style={{ padding: "18px 22px" }}>
-          <p className="muted" style={{ marginTop: 0 }}>
-            One person per line. Any of these work:
-            <br />
-            <code>Daw Khin Myo, khin@example.com, Partner Co.</code>
-            <br />
-            <code>U Aung &lt;aung@example.com&gt;</code> &nbsp;·&nbsp; <code>just@email.com</code>
-          </p>
-          <textarea
-            className="paste-area"
-            autoFocus
-            placeholder={"Daw Khin Myo, khin.myo@example.com, Partner Co.\nU Aung Aung <aung@example.com>\nguest@example.com"}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-          <div className="muted" style={{ marginTop: 8 }}>
-            {preview.length > 0 ? `${preview.length} recipient(s) detected` : "Detected recipients will appear in the list."}
-          </div>
-        </div>
-        <div className="modal__actions">
-          <button className="btn btn--ghost" style={{ flex: 1 }} onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn btn--primary" style={{ flex: 1.3 }} onClick={add} disabled={preview.length === 0}>
-            <PlusIcon size={16} /> Add {preview.length > 0 ? preview.length : ""} to list
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ---------------- Empty ---------------- */
-function EmptyState({ onPaste }: { onPaste: () => void }) {
+function EmptyState() {
   const { addBlankRow, addImported, notify } = useCampaign();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -447,11 +309,11 @@ function EmptyState({ onPaste }: { onPaste: () => void }) {
         <button className="btn btn--primary btn--sm" onClick={addBlankRow}>
           <PlusIcon size={15} /> Add row
         </button>
-        <button className="btn btn--ghost btn--sm" onClick={onPaste}>
-          <FileIcon size={15} /> Paste list
-        </button>
         <button className="btn btn--ghost btn--sm" onClick={() => fileRef.current?.click()}>
-          <UploadIcon size={15} /> Import file
+          <ImportIcon size={15} /> Import file
+        </button>
+        <button className="btn btn--ghost btn--sm" onClick={() => downloadTemplateXlsx()}>
+          <DownloadIcon size={15} /> Get template
         </button>
       </div>
     </div>

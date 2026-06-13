@@ -1,30 +1,17 @@
-import { useRef } from "react";
+import { useState } from "react";
 import { useCampaign } from "../state/campaign";
+import { parseEmails } from "../lib/validation";
 import { PenIcon } from "./icons";
 import TemplateMenu from "./TemplateMenu";
-
-const PLACEHOLDERS = ["{{Name}}", "{{Company}}"];
+import RichBody from "./RichBody";
 
 export default function ComposeCard() {
   const { draft, setDraft } = useCampaign();
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const [showCc, setShowCc] = useState(() => draft.cc.trim().length > 0);
+  const [showBcc, setShowBcc] = useState(() => draft.bcc.trim().length > 0);
 
-  function insertPlaceholder(token: string) {
-    const el = bodyRef.current;
-    if (!el) {
-      setDraft({ ...draft, body: draft.body + token });
-      return;
-    }
-    const start = el.selectionStart ?? draft.body.length;
-    const end = el.selectionEnd ?? draft.body.length;
-    const next = draft.body.slice(0, start) + token + draft.body.slice(end);
-    setDraft({ ...draft, body: next });
-    requestAnimationFrame(() => {
-      el.focus();
-      const pos = start + token.length;
-      el.setSelectionRange(pos, pos);
-    });
-  }
+  const ccCount = parseEmails(draft.cc).length;
+  const bccCount = parseEmails(draft.bcc).length;
 
   return (
     <section className="card">
@@ -43,9 +30,23 @@ export default function ComposeCard() {
       <div className="divider" />
       <div className="card__body">
         <div className="field">
-          <label className="label" htmlFor="subject">
-            Subject <span className="req">*</span>
-          </label>
+          <div className="label-row">
+            <label className="label" htmlFor="subject">
+              Subject <span className="req">*</span>
+            </label>
+            <div className="ccbcc-toggle">
+              {!showCc && (
+                <button type="button" onClick={() => setShowCc(true)}>
+                  Cc
+                </button>
+              )}
+              {!showBcc && (
+                <button type="button" onClick={() => setShowBcc(true)}>
+                  Bcc
+                </button>
+              )}
+            </div>
+          </div>
           <input
             id="subject"
             className="input"
@@ -55,37 +56,39 @@ export default function ComposeCard() {
           />
         </div>
 
-        <div className="field">
-          <label className="label" htmlFor="body">
-            Message <span className="req">*</span>
-          </label>
-          <textarea
-            id="body"
-            ref={bodyRef}
-            className="textarea"
-            placeholder={
-              "Dear {{Name}},\n\nWe would be delighted to welcome you to our upcoming event...\n\nWarm regards,\nHEINEKEN Myanmar"
-            }
-            value={draft.body}
-            onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-          />
-          <div className="chips">
-            {PLACEHOLDERS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                className="chip"
-                onClick={() => insertPlaceholder(p)}
-                title={`Insert ${p}`}
-              >
-                {p}
-              </button>
-            ))}
+        {showCc && (
+          <div className="field">
+            <label className="label" htmlFor="cc">
+              Cc <span className="opt">· added to every email</span>
+              {ccCount > 0 && <span className="addr-count">{ccCount} valid</span>}
+            </label>
+            <input
+              id="cc"
+              className="input"
+              placeholder="manager@heineken.com.mm, events@partner.com"
+              value={draft.cc}
+              onChange={(e) => setDraft({ ...draft, cc: e.target.value })}
+            />
           </div>
-          <p className="chips__hint">
-            Click a tag to insert it. Each recipient sees their own details.
-          </p>
-        </div>
+        )}
+
+        {showBcc && (
+          <div className="field">
+            <label className="label" htmlFor="bcc">
+              Bcc <span className="opt">· hidden recipients</span>
+              {bccCount > 0 && <span className="addr-count">{bccCount} valid</span>}
+            </label>
+            <input
+              id="bcc"
+              className="input"
+              placeholder="archive@heineken.com.mm"
+              value={draft.bcc}
+              onChange={(e) => setDraft({ ...draft, bcc: e.target.value })}
+            />
+          </div>
+        )}
+
+        <RichBody />
       </div>
     </section>
   );

@@ -15,6 +15,9 @@ export type AuthMode = "demo" | "graph";
 export interface Draft {
   subject: string;
   body: string;
+  /** Optional Cc / Bcc addresses (comma or semicolon separated) added to every send. */
+  cc: string;
+  bcc: string;
 }
 
 /** A row in the recipient list (manual or imported). */

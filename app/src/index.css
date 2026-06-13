@@ -629,7 +629,12 @@ textarea {
   font-size: 14.5px;
   line-height: 1.7;
   color: var(--ink-2);
-  white-space: pre-wrap;
+}
+.mail__body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 6px 0;
 }
 .mail__foot {
   padding: 14px 22px 22px;
@@ -1131,10 +1136,7 @@ textarea {
 
 /* sticky action bar */
 .actionbar {
-  position: sticky;
-  bottom: 16px;
   margin-top: 26px;
-  z-index: 25;
 }
 .actionbar__inner {
   display: flex;
@@ -1633,6 +1635,123 @@ button.menu__row {
 .hidden-file {
   display: none;
 }
+/* label row with Cc/Bcc toggles */
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ccbcc-toggle {
+  display: flex;
+  gap: 4px;
+}
+.ccbcc-toggle button {
+  border: none;
+  background: transparent;
+  color: var(--green-700);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 7px;
+  transition: background 0.14s;
+}
+.ccbcc-toggle button:hover {
+  background: var(--green-soft);
+}
+.addr-count {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green-700);
+  background: var(--green-soft);
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+/* rich message editor */
+.rich-wrap {
+  position: relative;
+}
+.rich-body {
+  width: 100%;
+  min-height: 168px;
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: #fcfdfc;
+  border-radius: var(--radius-sm);
+  padding: 11px 13px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  transition: border-color 0.16s, box-shadow 0.16s, background 0.16s;
+}
+.rich-body:focus {
+  outline: none;
+  border-color: var(--green);
+  background: #fff;
+  box-shadow: var(--ring);
+}
+.rich-body:empty::before {
+  content: attr(data-placeholder);
+  color: #9aa8a1;
+  pointer-events: none;
+}
+.rich-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 6px 0;
+  display: block;
+  cursor: pointer;
+}
+
+/* image selection + resize handles (Outlook-style) */
+.img-resizer {
+  position: absolute;
+  border: 1.5px solid var(--green);
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px rgba(0, 132, 61, 0.14);
+  pointer-events: none;
+  z-index: 5;
+}
+.img-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid var(--green);
+  border-radius: 3px;
+  pointer-events: auto;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.img-handle--nw {
+  left: -7px;
+  top: -7px;
+  cursor: nwse-resize;
+}
+.img-handle--ne {
+  right: -7px;
+  top: -7px;
+  cursor: nesw-resize;
+}
+.img-handle--sw {
+  left: -7px;
+  bottom: -7px;
+  cursor: nesw-resize;
+}
+.img-handle--se {
+  right: -7px;
+  bottom: -7px;
+  cursor: nwse-resize;
+}
+.chip--image {
+  border-style: solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .rot-90 {
   transform: rotate(90deg);
 }
@@ -1751,4 +1870,39 @@ code {
   outline: none;
   border-color: var(--green);
   box-shadow: var(--ring);
+}
+
+/* Recipients panel fills the viewport height on desktop so the list
+   takes the rest of the screen below, scrolling internally. */
+@media (min-width: 941px) {
+  .recipients-card {
+    position: sticky;
+    top: 84px;
+    /* fill the viewport height so the list uses the whole panel and
+       scrolls internally instead of leaving white space below */
+    height: calc(100vh - 104px);
+    display: flex;
+    flex-direction: column;
+  }
+  .recipients-card .card__body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .recipients-card .tablewrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .recipients-card .rtable__scroll {
+    flex: 1;
+    max-height: none;
+  }
+  /* center the empty state within the tall panel */
+  .recipients-card .card__body > .empty {
+    margin: auto 0;
+    width: 100%;
+  }
 }

@@ -3,7 +3,6 @@ import { useCampaign } from "../state/campaign";
 import { useAuth } from "../auth/useAuth";
 import { CheckIcon, GearIcon, XIcon } from "./icons";
 
-// Microsoft four-square logo.
 function MsLogo({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 21 21" aria-hidden>
@@ -17,31 +16,19 @@ function MsLogo({ size = 16 }: { size?: number }) {
 
 export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
   const { settings, updateSettings, notify } = useCampaign();
-  const { user, isReal, config, setConfig, connectMicrosoft, signOut } = useAuth();
-
-  const [clientId, setClientId] = useState(config.clientId);
-  const [tenantId, setTenantId] = useState(config.tenantId);
+  const { user, isReal, configured, connectMicrosoft, signOut } = useAuth();
   const [busy, setBusy] = useState(false);
 
   async function connect() {
-    if (!clientId.trim()) {
-      notify("error", "Client ID required", "Paste the Application (client) ID from Azure.");
-      return;
-    }
     setBusy(true);
     try {
-      await connectMicrosoft({ clientId: clientId.trim(), tenantId: tenantId.trim() || "common" });
+      await connectMicrosoft();
       notify("success", "Microsoft connected", "Real sending is now enabled for your mailbox.");
     } catch (e) {
       notify("error", "Couldn't connect", e instanceof Error ? e.message : "Sign-in was cancelled.");
     } finally {
       setBusy(false);
     }
-  }
-
-  function saveConfig() {
-    setConfig({ clientId: clientId.trim(), tenantId: tenantId.trim() || "common" });
-    notify("success", "Saved", "Microsoft connection details saved on this device.");
   }
 
   return (
@@ -78,40 +65,21 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
                   Disconnect & sign out
                 </button>
               </>
+            ) : configured ? (
+              <>
+                <p>Connect your Microsoft account to send real emails from your own mailbox.</p>
+                <button className="btn btn--primary btn--sm" onClick={connect} disabled={busy}>
+                  {busy ? <span className="spinner" /> : <MsLogo />} Connect Microsoft account
+                </button>
+              </>
             ) : (
               <>
-                <p>
-                  Connect your Azure app registration to send real emails. There is no API key —
-                  you sign in and send with your own mailbox permission.
-                </p>
-                <label className="label">Application (client) ID</label>
-                <input
-                  className="input"
-                  placeholder="00000000-0000-0000-0000-000000000000"
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                />
-                <label className="label" style={{ marginTop: 12 }}>
-                  Directory (tenant) ID <span className="opt">· or “common”</span>
-                </label>
-                <input
-                  className="input"
-                  placeholder="your-tenant-id or common"
-                  value={tenantId}
-                  onChange={(e) => setTenantId(e.target.value)}
-                />
-                <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                  <button className="btn btn--ghost btn--sm" onClick={saveConfig}>
-                    Save
-                  </button>
-                  <button className="btn btn--primary btn--sm" onClick={connect} disabled={busy}>
-                    {busy ? <span className="spinner" /> : <MsLogo />} Connect Microsoft account
-                  </button>
-                </div>
-                <p className="muted" style={{ marginTop: 12 }}>
-                  Your Azure app must be a <b>Single-page application</b> with redirect URI{" "}
-                  <code>{window.location.origin}</code> and delegated permissions{" "}
-                  <b>Mail.Send</b> + <b>User.Read</b>.
+                <p>Microsoft sending isn’t configured for this deployment.</p>
+                <p className="muted">
+                  Set <code>VITE_AZURE_CLIENT_ID</code> and <code>VITE_AZURE_TENANT_ID</code> in your
+                  hosting environment (e.g. Vercel → Settings → Environment Variables) and redeploy.
+                  The Azure app must be a Single-page application with redirect URI{" "}
+                  <code>{window.location.origin}</code> and delegated permissions Mail.Send + User.Read.
                 </p>
               </>
             )}

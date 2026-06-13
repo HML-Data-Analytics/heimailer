@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useCampaign } from "../state/campaign";
 import { useAuth } from "../auth/useAuth";
-import { renderTemplate } from "../lib/validation";
+import { hasBodyContent, parseEmails, renderTemplate } from "../lib/validation";
 import { sendMail } from "../lib/mailer";
 import { ChevronIcon, PaperclipIcon, SendIcon, XIcon } from "./icons";
 
@@ -26,6 +26,10 @@ export default function PreviewModal({ onClose }: { onClose: () => void }) {
 
   const subject = renderTemplate(draft.subject, recipient);
   const body = renderTemplate(draft.body, recipient);
+  const hasBody = hasBodyContent(body);
+  const ccList = parseEmails(draft.cc);
+  const bccList = parseEmails(draft.bcc);
+  const canSend = draft.subject.trim().length > 0 && hasBody;
   const firstName = recipient.name.trim().split(/\s+/)[0] || "them";
 
   function go(delta: number) {
@@ -103,9 +107,25 @@ export default function PreviewModal({ onClose }: { onClose: () => void }) {
                 {recipient.name} &lt;{recipient.email}&gt;
               </span>
             </div>
+            {ccList.length > 0 && (
+              <div className="mail__row">
+                <span className="k">Cc</span>
+                <span className="v">{ccList.join(", ")}</span>
+              </div>
+            )}
+            {bccList.length > 0 && (
+              <div className="mail__row">
+                <span className="k">Bcc</span>
+                <span className="v">{bccList.join(", ")}</span>
+              </div>
+            )}
           </div>
           <div className="mail__subject">{subject || "(no subject)"}</div>
-          <div className="mail__body">{body || "(empty message)"}</div>
+          {hasBody ? (
+            <div className="mail__body" dangerouslySetInnerHTML={{ __html: body }} />
+          ) : (
+            <div className="mail__body">(empty message)</div>
+          )}
           {attachments.length > 0 && (
             <div className="mail__attach">
               {attachments.map((a) => (
@@ -115,14 +135,19 @@ export default function PreviewModal({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           )}
-          <div className="mail__foot">Sent individually from your mailbox — no CC or BCC.</div>
         </div>
 
         <div className="modal__actions">
           <button className="btn btn--ghost" style={{ flex: 1 }} onClick={onClose} disabled={sending}>
             Keep editing
           </button>
-          <button className="btn btn--primary" style={{ flex: 1.4 }} onClick={testSend} disabled={sending}>
+          <button
+            className="btn btn--primary"
+            style={{ flex: 1.4 }}
+            onClick={testSend}
+            disabled={sending || !canSend}
+            title={!canSend ? "Add a subject and message first" : undefined}
+          >
             {sending ? (
               <>
                 <span className="spinner" /> Sending…

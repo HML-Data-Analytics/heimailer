@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useCampaign } from "../state/campaign";
 import { useAuth } from "../auth/useAuth";
 import { sendMail } from "../lib/mailer";
+import { hasBodyContent } from "../lib/validation";
 import { EyeIcon, SendIcon, UserIcon } from "./icons";
 
 export default function ActionBar({
@@ -15,9 +16,11 @@ export default function ActionBar({
   const { user, getAccessToken } = useAuth();
   const [selfBusy, setSelfBusy] = useState(false);
 
-  const hasContent = draft.subject.trim().length > 0 || draft.body.trim().length > 0;
+  const hasSubject = draft.subject.trim().length > 0;
+  const hasMessage = hasBodyContent(draft.body);
+  const hasContent = hasSubject && hasMessage;
   const canPreview = recipients.length > 0;
-  const canSendAll = sendIds.length > 0 && !sending;
+  const canSendAll = hasContent && sendIds.length > 0 && !sending;
 
   async function sendToMyself() {
     if (!user) return;
@@ -37,6 +40,8 @@ export default function ActionBar({
           subject: draft.subject,
           body: draft.body,
           attachments,
+          cc: draft.cc,
+          bcc: draft.bcc,
         },
         token,
       );
@@ -51,15 +56,19 @@ export default function ActionBar({
     <div className="actionbar">
       <div className="actionbar__inner">
         <div className="actionbar__meta">
-          {sendIds.length > 0 ? (
+          {sendIds.length === 0 ? (
+            <span className="muted">Add a recipient to begin</span>
+          ) : !hasContent ? (
+            <span className="muted">
+              {!hasSubject ? "Add a subject" : "Add a message"} to send
+            </span>
+          ) : (
             <>
               <b>{sendIds.length}</b> ready to send
               {recipients.length !== sendIds.length && (
                 <span className="muted"> · {recipients.length - sendIds.length} excluded/invalid</span>
               )}
             </>
-          ) : (
-            <span className="muted">Add a recipient to begin</span>
           )}
         </div>
 
@@ -74,7 +83,18 @@ export default function ActionBar({
           <EyeIcon /> Preview
         </button>
 
-        <button className="btn btn--primary btn--lg" onClick={onSendAll} disabled={!canSendAll}>
+        <button
+          className="btn btn--primary btn--lg"
+          onClick={onSendAll}
+          disabled={!canSendAll}
+          title={
+            sendIds.length === 0
+              ? "Add at least one valid recipient"
+              : !hasContent
+                ? "Add a subject and message first"
+                : undefined
+          }
+        >
           <SendIcon /> Send all{sendIds.length > 0 ? ` (${sendIds.length})` : ""}
         </button>
       </div>

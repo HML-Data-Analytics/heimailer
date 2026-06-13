@@ -167,6 +167,33 @@ export const DownloadIcon = ({ size = 16, className }: P) => (
   </svg>
 );
 
+// Import = bring data IN: arrow points DOWN into an open tray.
+export const ImportIcon = ({ size = 16, className }: P) => (
+  <svg {...base(size)} className={className}>
+    <path d="M12 3v9" />
+    <path d="m8 8 4 4 4-4" />
+    <path d="M4 14v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+  </svg>
+);
+
+// Export = send data OUT: arrow points UP out of a tray.
+export const ExportIcon = ({ size = 16, className }: P) => (
+  <svg {...base(size)} className={className}>
+    <path d="M12 16V4" />
+    <path d="m8 8 4-4 4 4" />
+    <path d="M4 14v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+  </svg>
+);
+
+// Image / picture icon for the rich body toolbar.
+export const ImageIcon = ({ size = 16, className }: P) => (
+  <svg {...base(size)} className={className}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <circle cx="9" cy="9" r="2" />
+    <path d="m21 15-4.5-4.5L5 21" />
+  </svg>
+);
+
 export const ClockIcon = ({ size = 18, className }: P) => (
   <svg {...base(size)} className={className}>
     <circle cx="12" cy="12" r="9" />

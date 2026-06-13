@@ -72,8 +72,6 @@ function Workspace() {
         <ActionBar onPreview={openPreview} onSendAll={() => setConfirm(true)} />
       </main>
 
-      <footer className="foot">HEINEKEN Myanmar · Internal Invitation Sender</footer>
-
       {preview && <PreviewModal onClose={() => setPreview(false)} />}
       {confirm && <ConfirmSendModal onClose={() => setConfirm(false)} onConfirm={doSendAll} />}
       {progress && <SendConsole />}

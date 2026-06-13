@@ -108,7 +108,7 @@ const Ctx = createContext<CampaignValue | null>(null);
 export function CampaignProvider({ children }: { children: ReactNode }) {
   const { user, getAccessToken } = useAuth();
 
-  const [draft, setDraft] = useState<Draft>({ subject: "", body: "" });
+  const [draft, setDraft] = useState<Draft>({ subject: "", body: "", cc: "", bcc: "" });
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
@@ -363,6 +363,8 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
             subject: draft.subject,
             body: draft.body,
             attachments,
+            cc: draft.cc,
+            bcc: draft.bcc,
           },
           token,
         );
@@ -461,7 +463,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   );
   const applyTemplate = useCallback(
     (t: Template) => {
-      setDraft({ subject: t.subject, body: t.body });
+      setDraft((prev) => ({ ...prev, subject: t.subject, body: t.body }));
       notify("info", "Template loaded", `“${t.name}” is now in your compose area.`);
     },
     [notify],

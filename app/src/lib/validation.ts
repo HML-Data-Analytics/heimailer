@@ -12,6 +12,20 @@ export function isValidEmail(value: string): boolean {
   return v.length <= 254 && EMAIL_RE.test(v);
 }
 
+/** Parse a comma/semicolon-separated address string into valid emails. */
+export function parseEmails(value: string): string[] {
+  return value
+    .split(/[,;\n]+/)
+    .map((s) => s.trim())
+    .filter((s) => isValidEmail(s));
+}
+
+/** Does this HTML body contain anything sendable (text or an image)? */
+export function hasBodyContent(html: string): boolean {
+  if (/<img\b/i.test(html)) return true;
+  return /\S/.test(html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " "));
+}
+
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "·";

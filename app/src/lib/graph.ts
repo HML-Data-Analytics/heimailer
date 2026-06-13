@@ -98,20 +98,53 @@ export async function sendViaGraph(
   subject: string,
   body: string,
   attachments: Attachment[] = [],
+  cc: string[] = [],
+  bcc: string[] = [],
 ): Promise<{ ok: boolean; error?: string }> {
+  const isHtml = /<[a-z][\s\S]*>/i.test(body);
+
+  // Inline images (pasted/dropped) arrive as data URLs in <img src="data:...">.
+  // Convert each to a Graph inline fileAttachment referenced by Content-ID so
+  // it renders in Outlook (data URIs are often blocked by mail clients).
+  const inline: Array<Record<string, unknown>> = [];
+  let content = body;
+  if (isHtml) {
+    let i = 0;
+    content = body.replace(
+      /src=["'](data:(image\/[a-zA-Z0-9.+-]+);base64,([^"']+))["']/g,
+      (_m, _full, mime: string, b64: string) => {
+        const cid = `inline${i++}@hmm`;
+        const ext = mime.split("/")[1] || "png";
+        inline.push({
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          name: `image-${i}.${ext}`,
+          contentType: mime,
+          contentBytes: b64,
+          contentId: cid,
+          isInline: true,
+        });
+        return `src="cid:${cid}"`;
+      },
+    );
+  }
+
   const message: Record<string, unknown> = {
     subject,
-    body: { contentType: "Text", content: body },
+    body: { contentType: isHtml ? "HTML" : "Text", content },
     toRecipients: [{ emailAddress: { address: to.email, name: to.name || undefined } }],
   };
+  if (cc.length > 0) message.ccRecipients = cc.map((a) => ({ emailAddress: { address: a } }));
+  if (bcc.length > 0) message.bccRecipients = bcc.map((a) => ({ emailAddress: { address: a } }));
 
-  if (attachments.length > 0) {
-    message.attachments = attachments.map((a) => ({
-      "@odata.type": "#microsoft.graph.fileAttachment",
-      name: a.name,
-      contentType: a.type,
-      contentBytes: a.dataUrl.includes(",") ? a.dataUrl.split(",")[1] : a.dataUrl,
-    }));
+  const fileAttachments = attachments.map((a) => ({
+    "@odata.type": "#microsoft.graph.fileAttachment",
+    name: a.name,
+    contentType: a.type,
+    contentBytes: a.dataUrl.includes(",") ? a.dataUrl.split(",")[1] : a.dataUrl,
+  }));
+  const allAttachments = [...fileAttachments, ...inline];
+  if (allAttachments.length > 0) {
+    message.attachments = allAttachments;
   }
 
   try {

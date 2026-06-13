@@ -13,18 +13,27 @@ import * as graph from "../lib/graph";
 
 const DEMO_KEY = "hmm.demo.user";
 
+/**
+ * Azure connection details come from build-time environment variables
+ * (set in Vercel → Settings → Environment Variables, or a local .env file):
+ *   VITE_AZURE_CLIENT_ID, VITE_AZURE_TENANT_ID
+ * They are never entered or stored in the app UI.
+ */
+const ENV_CONFIG: GraphConfig = {
+  clientId: (import.meta.env.VITE_AZURE_CLIENT_ID ?? "").trim(),
+  tenantId: (import.meta.env.VITE_AZURE_TENANT_ID ?? "common").trim() || "common",
+};
+
 interface AuthValue {
   user: User | null;
   mode: AuthMode | null;
   /** True when sending will go through real Microsoft Graph. */
   isReal: boolean;
-  /** Microsoft connection is configured (Client ID present). */
+  /** Microsoft sign-in is configured via environment variables. */
   configured: boolean;
-  config: GraphConfig;
-  setConfig: (c: GraphConfig) => void;
 
   signInDemo: () => Promise<void>;
-  connectMicrosoft: (config?: GraphConfig) => Promise<void>;
+  connectMicrosoft: () => Promise<void>;
   signOut: () => Promise<void>;
 
   /** Access token for Graph when connected; null in demo mode. */
@@ -36,16 +45,16 @@ const AuthContext = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<AuthMode | null>(null);
-  const [config, setConfigState] = useState<GraphConfig>(() => store.getGraphConfig());
+
+  const configured = ENV_CONFIG.clientId.length > 0;
 
   // Restore a previous session on load.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const savedMode = store.getMode();
-      if (savedMode === "graph") {
+      if (configured && store.getMode() === "graph") {
         try {
-          const u = await graph.restore(store.getGraphConfig());
+          const u = await graph.restore(ENV_CONFIG);
           if (!cancelled && u) {
             setUser(u);
             setMode("graph");
@@ -68,12 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const setConfig = useCallback((c: GraphConfig) => {
-    setConfigState(c);
-    store.saveGraphConfig(c);
-  }, []);
+  }, [configured]);
 
   const signInDemo = useCallback(async () => {
     await new Promise((r) => setTimeout(r, 500));
@@ -84,17 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMode("demo");
   }, []);
 
-  const connectMicrosoft = useCallback(
-    async (override?: GraphConfig) => {
-      const cfg = override ?? config;
-      if (override) setConfig(override);
-      const u = await graph.connect(cfg);
-      store.saveMode("graph");
-      setUser(u);
-      setMode("graph");
-    },
-    [config, setConfig],
-  );
+  const connectMicrosoft = useCallback(async () => {
+    if (!configured) throw new Error("Microsoft sign-in is not configured for this deployment.");
+    const u = await graph.connect(ENV_CONFIG);
+    store.saveMode("graph");
+    setUser(u);
+    setMode("graph");
+  }, [configured]);
 
   const signOut = useCallback(async () => {
     if (mode === "graph") {
@@ -116,15 +116,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       mode,
       isReal: mode === "graph",
-      configured: config.clientId.trim().length > 0,
-      config,
-      setConfig,
+      configured,
       signInDemo,
       connectMicrosoft,
       signOut,
       getAccessToken,
     }),
-    [user, mode, config, setConfig, signInDemo, connectMicrosoft, signOut, getAccessToken],
+    [user, mode, configured, signInDemo, connectMicrosoft, signOut, getAccessToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
