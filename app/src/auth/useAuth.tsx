@@ -17,7 +17,6 @@ const DEMO_KEY = "hmm.demo.user";
  * Azure connection details come from build-time environment variables
  * (set in Vercel → Settings → Environment Variables, or a local .env file):
  *   VITE_AZURE_CLIENT_ID, VITE_AZURE_TENANT_ID
- * They are never entered or stored in the app UI.
  */
 const ENV_CONFIG: GraphConfig = {
   clientId: (import.meta.env.VITE_AZURE_CLIENT_ID ?? "").trim(),
@@ -27,16 +26,12 @@ const ENV_CONFIG: GraphConfig = {
 interface AuthValue {
   user: User | null;
   mode: AuthMode | null;
-  /** True when sending will go through real Microsoft Graph. */
   isReal: boolean;
-  /** Microsoft sign-in is configured via environment variables. */
   configured: boolean;
 
   signInDemo: () => Promise<void>;
   connectMicrosoft: () => Promise<void>;
   signOut: () => Promise<void>;
-
-  /** Access token for Graph when connected; null in demo mode. */
   getAccessToken: () => Promise<string | null>;
 }
 
@@ -48,7 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const configured = ENV_CONFIG.clientId.length > 0;
 
-  // Restore a previous session on load.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -91,6 +85,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const connectMicrosoft = useCallback(async () => {
     if (!configured) throw new Error("Microsoft sign-in is not configured for this deployment.");
     const u = await graph.connect(ENV_CONFIG);
+
+    // In production, verify the signed-in email against the Synapse allowlist.
+    if (import.meta.env.PROD) {
+      try {
+        const res = await fetch("/api/check-access", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: u.email }),
+        });
+        if (!res.ok) throw new Error("Access check request failed.");
+        const { allowed } = (await res.json()) as { allowed: boolean };
+        if (!allowed) {
+          await graph.disconnect().catch(() => {});
+          throw new Error(
+            "Your account is not authorised to use this app. Contact your administrator.",
+          );
+        }
+      } catch (err) {
+        await graph.disconnect().catch(() => {});
+        throw err;
+      }
+    }
+
     store.saveMode("graph");
     setUser(u);
     setMode("graph");
