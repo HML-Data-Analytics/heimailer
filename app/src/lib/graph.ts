@@ -35,6 +35,11 @@ async function ensureApp(config: GraphConfig): Promise<PublicClientApplication> 
     cache: { cacheLocation: "localStorage" },
   });
   await pca.initialize();
+  // When the MSAL popup redirects back to the app URL, this page loads inside
+  // the popup window. Calling handleRedirectPromise() here lets MSAL process
+  // the auth code and post the result back to the parent window, then the
+  // popup closes on its own — preventing block_nested_popups.
+  await pca.handleRedirectPromise().catch(() => {});
   configKey = key;
   return pca;
 }
@@ -49,15 +54,6 @@ function accountToUser(account: AccountInfo): User {
 /** Interactive sign-in. Returns the connected user. */
 export async function connect(config: GraphConfig): Promise<User> {
   if (!config.clientId) throw new Error("Missing Client ID.");
-  // Force a fresh PCA so stale authority config from a prior attempt doesn't persist.
-  pca = null;
-  configKey = "";
-  // Clear any MSAL interaction lock left behind by a previous failed popup.
-  for (const key of Object.keys(sessionStorage)) {
-    if (key.includes("interaction.status") || key.includes("interaction_in_progress")) {
-      sessionStorage.removeItem(key);
-    }
-  }
   const app = await ensureApp(config);
   const result = await app.loginPopup({ scopes: SCOPES, prompt: "select_account" });
   app.setActiveAccount(result.account);
