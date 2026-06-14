@@ -16,7 +16,20 @@ import { useAuth } from "./auth/useAuth";
 import { useCampaign } from "./state/campaign";
 
 export default function App() {
-  const { user } = useAuth();
+  const { user, initializing } = useAuth();
+  if (initializing) {
+    return (
+      <div className="signin">
+        <div className="signin__card" style={{ display: "grid", placeItems: "center", gap: 16 }}>
+          <span
+            className="spinner"
+            style={{ width: 26, height: 26, borderTopColor: "#00843d", borderColor: "rgba(0,132,61,.25)" }}
+          />
+          <p style={{ margin: 0 }}>Completing sign-in…</p>
+        </div>
+      </div>
+    );
+  }
   if (!user) return <SignIn />;
   return <Workspace />;
 }

@@ -14,18 +14,22 @@ function MsLogo() {
 }
 
 export default function SignIn() {
-  const { signInDemo, connectMicrosoft, configured } = useAuth();
+  const { signInDemo, connectMicrosoft, configured, authError } = useAuth();
   const [busy, setBusy] = useState<"ms" | "demo" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // authError comes from a failed redirect sign-in completed on page load
+  // (e.g. account not on the allowlist); local error from a failed click.
+  const shownError = error ?? authError;
 
   async function microsoft() {
     setError(null);
     setBusy("ms");
     try {
+      // Navigates the whole page to Microsoft; on success it won't return here.
       await connectMicrosoft();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign-in was cancelled.");
-    } finally {
       setBusy(null);
     }
   }
@@ -66,7 +70,7 @@ export default function SignIn() {
                 </>
               )}
             </button>
-            {error && <div className="signin__error">{error}</div>}
+            {shownError && <div className="signin__error">{shownError}</div>}
             <button className="signin__demolink" onClick={demo} disabled={busy !== null}>
               {busy === "demo" ? "Loading…" : "Or explore in demo mode →"}
             </button>

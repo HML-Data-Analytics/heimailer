@@ -30,10 +30,11 @@ async function ensureApp(config: GraphConfig): Promise<PublicClientApplication> 
     auth: {
       clientId: config.clientId,
       authority,
-      // Redirect the sign-in popup to a dedicated blank page (not the app), so
-      // the popup never boots the full React app and closes cleanly. This URI
-      // must be registered as an SPA redirect URI in the Azure app.
-      redirectUri: `${window.location.origin}/blank.html`,
+      // Redirect flow: the whole page navigates to Microsoft and back to the
+      // app origin, where completeLogin() processes the response. This avoids
+      // popup/opener (COOP) issues entirely. Must be a registered SPA redirect
+      // URI in the Azure app.
+      redirectUri: window.location.origin,
     },
     cache: { cacheLocation: "localStorage" },
   });
@@ -49,13 +50,30 @@ function accountToUser(account: AccountInfo): User {
   };
 }
 
-/** Interactive sign-in. Returns the connected user. */
-export async function connect(config: GraphConfig): Promise<User> {
+/**
+ * Begin interactive sign-in via full-page redirect. This navigates the whole
+ * window to Microsoft and does not return — the result is picked up by
+ * completeLogin() after the browser redirects back to the app.
+ */
+export async function beginLogin(config: GraphConfig): Promise<void> {
   if (!config.clientId) throw new Error("Missing Client ID.");
   const app = await ensureApp(config);
-  const result = await app.loginPopup({ scopes: SCOPES, prompt: "select_account" });
-  app.setActiveAccount(result.account);
-  return accountToUser(result.account);
+  await app.loginRedirect({ scopes: SCOPES, prompt: "select_account" });
+}
+
+/**
+ * Complete a redirect sign-in. Call once on app load: returns the freshly
+ * signed-in user if we just came back from Microsoft, or null otherwise.
+ */
+export async function completeLogin(config: GraphConfig): Promise<User | null> {
+  if (!config.clientId) return null;
+  const app = await ensureApp(config);
+  const result = await app.handleRedirectPromise();
+  if (result?.account) {
+    app.setActiveAccount(result.account);
+    return accountToUser(result.account);
+  }
+  return null;
 }
 
 /** Restore a previously connected account silently (no popup), if present. */

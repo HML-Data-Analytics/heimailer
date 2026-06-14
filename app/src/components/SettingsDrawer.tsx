@@ -44,6 +44,7 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="drawer__body">
+
           {/* Microsoft connection */}
           <div className="setrow">
             <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -61,8 +62,12 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
                 <p className="muted" style={{ marginTop: 12 }}>
                   Emails are sent for real from your mailbox via Microsoft Graph.
                 </p>
-                <button className="btn btn--danger btn--sm" style={{ marginTop: 6 }} onClick={() => signOut()}>
-                  Disconnect & sign out
+                <button
+                  className="btn btn--danger btn--sm"
+                  style={{ marginTop: 6 }}
+                  onClick={() => signOut()}
+                >
+                  Disconnect &amp; sign out
                 </button>
               </>
             ) : configured ? (
@@ -74,12 +79,13 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
               </>
             ) : (
               <>
-                <p>Microsoft sending isn’t configured for this deployment.</p>
+                <p>Microsoft sending isn't configured for this deployment.</p>
                 <p className="muted">
-                  Set <code>VITE_AZURE_CLIENT_ID</code> and <code>VITE_AZURE_TENANT_ID</code> in your
-                  hosting environment (e.g. Vercel → Settings → Environment Variables) and redeploy.
-                  The Azure app must be a Single-page application with redirect URI{" "}
-                  <code>{window.location.origin}</code> and delegated permissions Mail.Send + User.Read.
+                  Set <code>VITE_AZURE_CLIENT_ID</code> and <code>VITE_AZURE_TENANT_ID</code> in
+                  your hosting environment (e.g. Vercel → Settings → Environment Variables) and
+                  redeploy. The Azure app must be a Single-page application (SPA) with redirect
+                  URI <code>{window.location.origin}</code> and delegated permissions Mail.Send +
+                  User.Read. No client secret is required.
                 </p>
               </>
             )}
