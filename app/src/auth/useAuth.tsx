@@ -43,8 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const configured = ENV_CONFIG.clientId.length > 0;
 
+  // Restore a previous session on load.
+  // Only a real (Microsoft Graph) connection persists across visits — that's
+  // good UX for authorised users. Demo mode is deliberately NOT restored, so
+  // the sign-in page is always the landing screen unless a real account is
+  // connected. (Any stale demo session from earlier is cleared here.)
   useEffect(() => {
     let cancelled = false;
+    localStorage.removeItem(DEMO_KEY);
     (async () => {
       if (configured && store.getMode() === "graph") {
         try {
@@ -55,17 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
         } catch {
-          /* fall through to demo */
+          /* not connected — show sign-in */
         }
-      }
-      const raw = localStorage.getItem(DEMO_KEY);
-      if (raw && !cancelled) {
-        try {
-          setUser(JSON.parse(raw) as User);
-          setMode("demo");
-        } catch {
-          localStorage.removeItem(DEMO_KEY);
-        }
+        // mode was "graph" but no live account: reset so we land on sign-in.
+        if (!cancelled) store.saveMode(null);
       }
     })();
     return () => {

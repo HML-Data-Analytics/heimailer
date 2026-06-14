@@ -35,11 +35,6 @@ async function ensureApp(config: GraphConfig): Promise<PublicClientApplication> 
     cache: { cacheLocation: "localStorage" },
   });
   await pca.initialize();
-  // When the MSAL popup redirects back to the app URL, this page loads inside
-  // the popup window. Calling handleRedirectPromise() here lets MSAL process
-  // the auth code and post the result back to the parent window, then the
-  // popup closes on its own — preventing block_nested_popups.
-  await pca.handleRedirectPromise().catch(() => {});
   configKey = key;
   return pca;
 }
