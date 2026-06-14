@@ -45,9 +45,21 @@ export default async function handler(req: any, res: any) {
     );
 
     if (!tokenRes.ok) {
-      const detail = await tokenRes.text();
-      console.error("AAD token error:", detail);
-      return res.status(401).json({ error: "Azure authentication failed" });
+      const raw = await tokenRes.text();
+      console.error("AAD token error:", raw);
+      let detail = raw.slice(0, 300);
+      try {
+        const j = JSON.parse(raw);
+        detail = j.error_description || j.error || detail;
+      } catch {
+        /* keep raw */
+      }
+      // Surface the AADSTS code so the cause is clear (bad secret, wrong
+      // tenant, etc.). First line of error_description holds the AADSTS code.
+      return res.status(401).json({
+        error: "Azure authentication failed",
+        detail: String(detail).split(/\r?\n/)[0],
+      });
     }
 
     const { access_token } = (await tokenRes.json()) as { access_token: string };
