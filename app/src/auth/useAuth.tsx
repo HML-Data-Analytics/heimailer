@@ -54,7 +54,24 @@ async function verifyAccess(email: string): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
-  if (!res.ok) throw new Error("Couldn't verify your access. Please try again.");
+
+  if (!res.ok) {
+    // Surface the server's actual error so connection/config issues are visible.
+    let detail = `HTTP ${res.status}`;
+    try {
+      const data = await res.json();
+      detail = data?.detail || data?.error || detail;
+    } catch {
+      try {
+        const text = await res.text();
+        if (text) detail = text.slice(0, 200);
+      } catch {
+        /* ignore */
+      }
+    }
+    throw new Error(`Access check failed: ${detail}`);
+  }
+
   const { allowed } = (await res.json()) as { allowed: boolean };
   if (!allowed) {
     throw new Error(
