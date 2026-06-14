@@ -701,7 +701,7 @@ textarea {
   margin-top: 1px;
 }
 
-/* ---------- Sign-in screen ---------- */
+/* ---------- Sign-in screen (premium) ---------- */
 .signin {
   min-height: 100vh;
   display: grid;
@@ -709,36 +709,70 @@ textarea {
   padding: 24px;
 }
 .signin__card {
-  width: min(420px, 100%);
+  position: relative;
+  width: min(432px, 100%);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: 26px;
   box-shadow: var(--shadow-lg);
-  padding: 36px 32px 30px;
+  padding: 40px 36px 26px;
   text-align: center;
-  animation: pop 0.3s var(--ease);
+  overflow: hidden;
+  animation: pop 0.36s var(--ease);
 }
-.signin__mark {
-  width: 58px;
-  height: 58px;
-  margin: 0 auto 18px;
-  border-radius: 17px;
+/* hairline gradient accent along the top edge */
+.signin__card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--green), #00b455, var(--red));
+  opacity: 0.9;
+}
+
+.signin__logo {
   display: grid;
   place-items: center;
-  background: linear-gradient(150deg, var(--green) 0%, var(--green-700) 100%);
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  margin-bottom: 20px;
 }
-.signin__card h1 {
-  font-size: 21px;
-  margin: 0 0 6px;
-  letter-spacing: -0.02em;
+
+.signin__kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: var(--green-700);
+  margin-bottom: 8px;
 }
-.signin__card p {
+
+.signin__title {
+  font-size: 32px;
+  line-height: 1.05;
+  margin: 0 0 10px;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  background: linear-gradient(150deg, var(--ink) 0%, var(--green-700) 140%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.signin__tagline {
+  margin: 0 auto 10px;
+  max-width: 320px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.signin__summary {
   margin: 0 auto 24px;
-  max-width: 300px;
+  max-width: 330px;
+  font-size: 12.5px;
+  line-height: 1.6;
   color: var(--ink-3);
-  font-size: 13.5px;
 }
+
 .ms-btn {
   width: 100%;
   display: inline-flex;
@@ -751,36 +785,113 @@ textarea {
   font-weight: 700;
   font-size: 14.5px;
   padding: 13px;
-  border-radius: 12px;
+  border-radius: 13px;
   box-shadow: var(--shadow-sm);
   transition: border-color 0.16s, box-shadow 0.16s, transform 0.12s var(--ease);
 }
-.ms-btn:hover {
+.ms-btn:hover:not(:disabled) {
   border-color: #b9c5bf;
   box-shadow: var(--shadow);
+  transform: translateY(-1px);
 }
 .ms-btn:active {
   transform: translateY(1px);
 }
+.ms-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .signin__note {
   margin-top: 18px;
   font-size: 11.5px;
   color: var(--ink-3);
   line-height: 1.5;
 }
-.signin__demo {
-  margin-top: 14px;
+
+.signin__trust {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--amber);
-  background: var(--amber-soft);
-  padding: 5px 11px;
-  border-radius: 999px;
+  gap: 7px;
+  margin-top: 22px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.signin__trust svg {
+  color: var(--green-700);
+  flex: none;
+}
+
+.signin__endorse {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-2);
+  display: grid;
+  place-items: center;
+}
+
+/* corporate logo (real PNG or fallback lockup) */
+.hk-logo {
+  width: auto;
+  object-fit: contain;
+  opacity: 0.92;
+}
+.hk-logo-fallback {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.hk-logo-fallback__text {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink-2);
+}
+.hk-logo-fallback__text b {
+  font-weight: 800;
+  color: var(--green-700);
+}
+
+/* ---------- HeiMailer animated mail mark ---------- */
+.heimark {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  box-shadow: 0 10px 26px rgba(0, 132, 61, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.heimark svg {
+  display: block;
+}
+.heimark-plane {
+  transform-origin: 32px 28px;
+}
+.heimark--on .heimark-plane {
+  animation: heimark-fly 3.2s var(--ease) infinite;
+}
+.heimark--on .heimark-trail {
+  animation: heimark-trail 3.2s var(--ease) infinite;
+}
+@keyframes heimark-fly {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  55% { transform: translate(6px, -6px) rotate(0deg); opacity: 1; }
+  70% { transform: translate(20px, -20px) rotate(6deg); opacity: 0; }
+  71% { transform: translate(-10px, 10px) rotate(0deg); opacity: 0; }
+  85% { transform: translate(-6px, 6px) rotate(0deg); opacity: 1; }
+  100% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+}
+@keyframes heimark-trail {
+  0% { stroke-dashoffset: 80; opacity: 0; }
+  40% { opacity: 0.55; }
+  65% { stroke-dashoffset: 0; opacity: 0.55; }
+  80% { opacity: 0; }
+  100% { stroke-dashoffset: 80; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heimark--on .heimark-plane,
+  .heimark--on .heimark-trail {
+    animation: none;
+  }
 }
 
 /* ---------- Page intro ---------- */
@@ -2175,4 +2286,28 @@ code {
 [data-theme="dark"] .fmt-btn.is-active {
   background: var(--green-soft);
   color: #4ade80;
+}
+
+/* Premium sign-in — dark polish */
+[data-theme="dark"] .signin__kicker {
+  color: #34c172;
+}
+[data-theme="dark"] .signin__title {
+  background: linear-gradient(150deg, #eafff3 0%, #2fbf6a 150%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-theme="dark"] .signin__trust svg {
+  color: #34c172;
+}
+[data-theme="dark"] .hk-logo-fallback__text {
+  color: var(--ink);
+}
+[data-theme="dark"] .hk-logo-fallback__text b {
+  color: #34c172;
+}
+/* keep the real green logo legible on dark surface */
+[data-theme="dark"] .hk-logo {
+  filter: brightness(1.18) saturate(1.05);
 }

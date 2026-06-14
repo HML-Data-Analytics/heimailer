@@ -2,7 +2,8 @@ import { useAuth } from "../auth/useAuth";
 import { useCampaign } from "../state/campaign";
 import { useTheme } from "../lib/useTheme";
 import { initials } from "../lib/validation";
-import { ClockIcon, GearIcon, LogoutIcon, MoonIcon, StarIcon, SunIcon } from "./icons";
+import { ClockIcon, GearIcon, LogoutIcon, MoonIcon, SunIcon } from "./icons";
+import { HeiMailerLogo } from "./Brand";
 
 export default function Header({
   onOpenHistory,
@@ -19,12 +20,10 @@ export default function Header({
     <header className="header">
       <div className="header__inner">
         <div className="brand">
-          <span className="brand__mark">
-            <StarIcon size={22} />
-          </span>
+          <HeiMailerLogo size={38} animated={false} />
           <span className="brand__title">
-            HEINEKEN Myanmar
-            <small>Invitation Sender</small>
+            HeiMailer
+            <small>HEINEKEN Myanmar</small>
           </span>
         </div>
 
