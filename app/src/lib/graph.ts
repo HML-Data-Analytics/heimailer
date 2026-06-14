@@ -30,7 +30,10 @@ async function ensureApp(config: GraphConfig): Promise<PublicClientApplication> 
     auth: {
       clientId: config.clientId,
       authority,
-      redirectUri: window.location.origin,
+      // Redirect the sign-in popup to a dedicated blank page (not the app), so
+      // the popup never boots the full React app and closes cleanly. This URI
+      // must be registered as an SPA redirect URI in the Azure app.
+      redirectUri: `${window.location.origin}/blank.html`,
     },
     cache: { cacheLocation: "localStorage" },
   });

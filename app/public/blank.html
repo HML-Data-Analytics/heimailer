@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>Signing in…</title>
+  </head>
+  <body>
+    <!--
+      Dedicated MSAL popup redirect target. This page is intentionally blank:
+      MSAL opens the sign-in popup here, the parent window reads the auth code
+      from this URL, then closes the popup. No application code runs here, so
+      the full app can never boot inside the popup (which caused
+      block_nested_popups). See app/src/lib/graph.ts redirectUri.
+    -->
+  </body>
+</html>
