@@ -25,6 +25,50 @@ const PLACEHOLDERS = ["{{Name}}", "{{Company}}"];
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const HIGHLIGHT_COLOR = "#fef08a";
 
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|svg|tiff?|heic|avif)$/i;
+
+/** Treat a clipboard/drag file as an image by MIME type or file extension. */
+function looksLikeImage(file: File): boolean {
+  return file.type.startsWith("image/") || IMAGE_EXT_RE.test(file.name);
+}
+
+/** Best-guess image MIME for a file whose type is missing/non-image. */
+function imageMimeFor(file: File): string {
+  if (file.type.startsWith("image/")) return file.type;
+  const ext = file.name.match(IMAGE_EXT_RE)?.[1]?.toLowerCase();
+  switch (ext) {
+    case "jpg":
+    case "jpeg": return "image/jpeg";
+    case "gif": return "image/gif";
+    case "webp": return "image/webp";
+    case "bmp": return "image/bmp";
+    case "svg": return "image/svg+xml";
+    case "tif":
+    case "tiff": return "image/tiff";
+    case "heic": return "image/heic";
+    case "avif": return "image/avif";
+    default: return "image/png";
+  }
+}
+
+/** Collect any image files from a clipboard or drag-drop data transfer. */
+function imageFilesFrom(dt: DataTransfer | null): File[] {
+  if (!dt) return [];
+  const fromFiles = Array.from(dt.files ?? []);
+  const fromItems = Array.from(dt.items ?? [])
+    .filter((it) => it.kind === "file")
+    .map((it) => it.getAsFile())
+    .filter((f): f is File => f != null);
+  // De-dupe (files and items can overlap) and keep only image-like files.
+  const seen = new Set<string>();
+  return [...fromFiles, ...fromItems].filter((f) => {
+    const key = `${f.name}|${f.size}|${f.type}`;
+    if (seen.has(key) || !looksLikeImage(f)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 type Corner = "nw" | "ne" | "sw" | "se";
 interface Box {
   l: number;
@@ -142,15 +186,25 @@ export default function RichBody() {
   }
 
   function insertImageFile(file: File) {
-    if (!file.type.startsWith("image/")) return;
+    if (!looksLikeImage(file)) return;
     if (file.size > MAX_IMAGE_BYTES) {
       notify("error", "Image too large", `${file.name || "Image"} exceeds the 5 MB limit.`);
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
+      let dataUrl = String(reader.result);
+      // Screenshots from Snipping Tool — and image files copied from Explorer —
+      // sometimes arrive with an empty or non-image MIME type, which yields a
+      // "data:;base64,…" URL the browser can't render (it falls back to showing
+      // the filename) and the Graph inline-image converter won't recognise.
+      // Force a proper image MIME so it renders and embeds correctly.
+      if (!/^data:image\//i.test(dataUrl)) {
+        const mime = imageMimeFor(file);
+        dataUrl = dataUrl.replace(/^data:[^;,]*/i, `data:${mime}`);
+      }
       const img = document.createElement("img");
-      img.src = String(reader.result);
+      img.src = dataUrl;
       img.alt = file.name || "image";
       insertNodeAtCaret(img);
     };
@@ -158,16 +212,11 @@ export default function RichBody() {
   }
 
   function onPaste(e: ClipboardEvent<HTMLDivElement>) {
-    const items = e.clipboardData?.items;
-    if (items) {
-      for (const it of items) {
-        if (it.kind === "file" && it.type.startsWith("image/")) {
-          e.preventDefault();
-          const file = it.getAsFile();
-          if (file) insertImageFile(file);
-          return;
-        }
-      }
+    const images = imageFilesFrom(e.clipboardData);
+    if (images.length > 0) {
+      e.preventDefault();
+      images.forEach(insertImageFile);
+      return;
     }
     const text = e.clipboardData.getData("text/plain");
     if (text) {
@@ -177,10 +226,10 @@ export default function RichBody() {
   }
 
   function onDrop(e: DragEvent<HTMLDivElement>) {
-    const files = e.dataTransfer?.files;
-    if (files && files.length > 0 && files[0].type.startsWith("image/")) {
+    const images = imageFilesFrom(e.dataTransfer);
+    if (images.length > 0) {
       e.preventDefault();
-      Array.from(files).forEach(insertImageFile);
+      images.forEach(insertImageFile);
     }
   }
 
