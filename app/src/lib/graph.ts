@@ -170,27 +170,54 @@ export async function sendViaGraph(
     message.attachments = allAttachments;
   }
 
-  try {
-    const res = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ message, saveToSentItems: true }),
-    });
+  // Graph throttles /me/sendMail (HTTP 429) and may return transient 5xx
+  // errors. Without retries, a fast batch leaves "some sent, some not". Retry
+  // transient failures with backoff, honouring the Retry-After header.
+  const MAX_ATTEMPTS = 4;
+  let lastError = "Send failed.";
 
-    if (res.ok || res.status === 202) return { ok: true };
-
-    let detail = `Graph error ${res.status}`;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const data = await res.json();
-      detail = data?.error?.message || detail;
-    } catch {
-      /* ignore parse */
+      const res = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message, saveToSentItems: true }),
+      });
+
+      if (res.ok || res.status === 202) return { ok: true };
+
+      let detail = `Graph error ${res.status}`;
+      try {
+        const data = await res.json();
+        detail = data?.error?.message || detail;
+      } catch {
+        /* ignore parse */
+      }
+      lastError = detail;
+
+      const transient = res.status === 429 || res.status === 503 || res.status === 504;
+      if (transient && attempt < MAX_ATTEMPTS) {
+        const retryAfter = Number(res.headers.get("Retry-After"));
+        const waitMs =
+          Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter * 1000
+            : 1000 * 2 ** (attempt - 1);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      return { ok: false, error: detail };
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : "Network error.";
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)));
+        continue;
+      }
+      return { ok: false, error: lastError };
     }
-    return { ok: false, error: detail };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Network error." };
   }
+
+  return { ok: false, error: lastError };
 }

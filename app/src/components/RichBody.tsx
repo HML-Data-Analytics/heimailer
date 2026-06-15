@@ -235,10 +235,46 @@ export default function RichBody() {
     updateActive();
   }
 
+  // Wrap a selected image in an anchor (making it clickable), or unwrap it if
+  // it is already linked. Mirrors the text-link behaviour for images.
+  function linkImage(img: HTMLImageElement) {
+    editorRef.current?.focus();
+    const existing = img.parentElement?.tagName === "A"
+      ? (img.parentElement as HTMLAnchorElement)
+      : null;
+
+    if (existing) {
+      existing.replaceWith(img);
+      setSelImg(img);
+      commit();
+      updateActive();
+      return;
+    }
+
+    const url = window.prompt("Enter URL for this image:", "https://");
+    if (!url || url === "https://") return;
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    img.replaceWith(a);
+    a.appendChild(img);
+    setSelImg(img);
+    commit();
+    updateActive();
+  }
+
   function insertLink() {
+    // If an image is selected, link/unlink the image itself (wrap it in an
+    // anchor) rather than acting on a text selection.
+    if (selImg) {
+      linkImage(selImg);
+      return;
+    }
+
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) {
-      notify("info", "Select text first", "Highlight some text to turn it into a link.");
+      notify("info", "Select text or image", "Highlight text, or click an image, then add a link.");
       return;
     }
     const anchor = sel.anchorNode?.parentElement;
@@ -424,7 +460,7 @@ export default function RichBody() {
       </div>
       <p className="chips__hint">
         Click a tag to personalize, or <b>paste / drop an image</b> (screenshots work too). Click an
-        image to resize it.
+        image to resize it, or select it and hit the link button to <b>make it clickable</b>.
       </p>
     </div>
   );

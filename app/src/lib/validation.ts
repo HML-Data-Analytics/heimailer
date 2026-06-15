@@ -45,7 +45,9 @@ export function renderTemplate(
   return text.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key: string) => {
     const k = key.toLowerCase();
     if (k === "name") return recipient.name || match;
-    if (k === "company") return recipient.company?.trim() || match;
+    // Company is optional: when a recipient has no company, render blank
+    // instead of leaving the literal {{Company}} token in the message.
+    if (k === "company") return recipient.company?.trim() || "";
     return match;
   });
 }
