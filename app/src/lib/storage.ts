@@ -33,7 +33,9 @@ function write<T>(key: string, value: T): void {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  sendDelayMs: 600,
+  // Microsoft 365 throttles /me/sendMail at ~30 messages/minute. A 2s gap
+  // (~30/min) keeps the batch under that ceiling so messages aren't dropped.
+  sendDelayMs: 2000,
   highVolumeThreshold: 50,
 };
 

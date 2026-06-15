@@ -25,6 +25,25 @@ const PLACEHOLDERS = ["{{Name}}", "{{Company}}"];
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const HIGHLIGHT_COLOR = "#fef08a";
 
+// Typical email body width. Inserted images are capped to this and the
+// percentage presets are relative to it, so sizes map to real pixels the way
+// Outlook renders them. The browser preview/editor cap images via CSS, but the
+// sent email has no such CSS — so we bake an explicit width attribute into each
+// image (email clients honour the width attribute) to keep sizes correct.
+const EMAIL_CONTENT_WIDTH = 600;
+const MIN_IMG_W = 40;
+const SIZE_PRESETS = [25, 50, 75, 100] as const;
+
+/** Set an email-safe width on an image: width attribute + inline style. */
+function applyImageWidth(img: HTMLImageElement, px: number) {
+  const w = Math.max(MIN_IMG_W, Math.round(px));
+  img.setAttribute("width", String(w));
+  img.removeAttribute("height");
+  img.style.width = `${w}px`;
+  img.style.height = "auto";
+  img.style.maxWidth = "100%";
+}
+
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|svg|tiff?|heic|avif)$/i;
 
 /** Treat a clipboard/drag file as an image by MIME type or file extension. */
@@ -204,8 +223,15 @@ export default function RichBody() {
         dataUrl = dataUrl.replace(/^data:[^;,]*/i, `data:${mime}`);
       }
       const img = document.createElement("img");
-      img.src = dataUrl;
       img.alt = file.name || "image";
+      // Cap to the email content width once natural dimensions are known, so a
+      // big screenshot doesn't arrive full-size in the recipient's inbox.
+      img.onload = () => {
+        const natural = img.naturalWidth || EMAIL_CONTENT_WIDTH;
+        applyImageWidth(img, Math.min(natural, EMAIL_CONTENT_WIDTH));
+        commit();
+      };
+      img.src = dataUrl;
       insertNodeAtCaret(img);
     };
     reader.readAsDataURL(file);
@@ -252,9 +278,8 @@ export default function RichBody() {
     function onMove(ev: MouseEvent) {
       const dx = ev.clientX - startX;
       let w = fromLeft ? startW - dx : startW + dx;
-      w = Math.max(40, Math.min(w, maxW));
-      img!.style.width = `${Math.round(w)}px`;
-      img!.style.height = "auto";
+      w = Math.max(MIN_IMG_W, Math.min(w, maxW));
+      applyImageWidth(img!, w);
       reposition();
     }
     function onUp() {
@@ -265,6 +290,24 @@ export default function RichBody() {
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }
+
+  // Set the selected image to a percentage of the email content width — the
+  // same "Size %" idea as Outlook's image formatting.
+  function setImagePercent(pct: number) {
+    if (!selImg) return;
+    applyImageWidth(selImg, (pct / 100) * EMAIL_CONTENT_WIDTH);
+    commit();
+    reposition();
+  }
+
+  // Current width of the selected image as a % of the email content width.
+  const selImgPercent = selImg
+    ? Math.round(
+        ((Number(selImg.getAttribute("width")) || selImg.getBoundingClientRect().width) /
+          EMAIL_CONTENT_WIDTH) *
+          100,
+      )
+    : null;
 
   // ---- formatting helpers ----
 
@@ -473,6 +516,20 @@ export default function RichBody() {
 
         {box && (
           <div className="img-resizer" style={{ left: box.l, top: box.t, width: box.w, height: box.h }}>
+            <div className="img-sizebar" onMouseDown={(e) => e.preventDefault()}>
+              {SIZE_PRESETS.map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  className={`img-sizebtn${selImgPercent === pct ? " is-active" : ""}`}
+                  onClick={() => setImagePercent(pct)}
+                  title={`Resize to ${pct}%`}
+                >
+                  {pct}%
+                </button>
+              ))}
+              {selImgPercent != null && <span className="img-sizeval">{selImgPercent}%</span>}
+            </div>
             {(["nw", "ne", "sw", "se"] as Corner[]).map((c) => (
               <span
                 key={c}

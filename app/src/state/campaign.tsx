@@ -356,6 +356,18 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         setProgress((p) => (p ? { ...p, currentName: r.name || r.email } : p));
         updateRecipient(r.id, { sendStatus: "sending" });
 
+        // Refresh the access token before each send. MSAL returns the cached
+        // token instantly and only hits the network when it is near expiry, so
+        // a long batch can't fail midway because the initial token aged out.
+        if (token) {
+          try {
+            const fresh = await getAccessToken();
+            if (fresh) token = fresh;
+          } catch {
+            /* keep the last good token; the send will surface any real error */
+          }
+        }
+
         const res = await sendMail(
           {
             from: user,
