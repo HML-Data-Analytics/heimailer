@@ -35,9 +35,12 @@ let configKey = "";
 async function ensureApp(config: GraphConfig): Promise<PublicClientApplication> {
   const key = `${config.clientId}|${config.tenantId}`;
   if (pca && key === configKey) return pca;
-  // Use "common" so both personal and organisational Microsoft accounts can
-  // sign in. The Synapse mini_mail.user allowlist is the real access gate.
-  const authority = "https://login.microsoftonline.com/common";
+  // Use the configured tenant so sign-in works for a single-tenant app
+  // registration (a "/common" authority fails for org-only apps). Falls back to
+  // "common" when no tenant is set. The Synapse mini_mail.user allowlist is the
+  // real access gate either way.
+  const tenant = config.tenantId?.trim() || "common";
+  const authority = `https://login.microsoftonline.com/${tenant}`;
   pca = new PublicClientApplication({
     auth: {
       clientId: config.clientId,
