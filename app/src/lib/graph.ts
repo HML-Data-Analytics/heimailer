@@ -11,13 +11,23 @@ import type { Attachment, GraphConfig, User } from "../types";
  * signs in and the app sends with their own Mail.Send permission.
  *
  * Azure app registration requirements:
- *  - Platform: Single-page application (SPA)
- *  - Redirect URI: this app's origin (e.g. http://localhost:5173)
- *  - Delegated Graph permissions: User.Read, Mail.Send
+ *  - Platform: Single-page application (SPA), redirect URI = this app's origin
+ *    (e.g. http://localhost:5173). NB: a browser SPA cannot use the
+ *    "Public client (mobile & desktop)" platform / nativeclient redirect.
+ *  - Required delegated Graph permissions: User.Read, Mail.Send
+ *  - Optional delegated permission: Mail.Send.Shared (see below)
  */
-// Mail.Send.Shared lets the signed-in user send from a shared mailbox they
-// have "Send As" / "Send on Behalf" rights to (in addition to their own).
-const SCOPES = ["User.Read", "Mail.Send", "Mail.Send.Shared"];
+// Required scopes — the app cannot send without these. They are the only mail
+// permission in HEINEKEN's approved EWS/Graph list (Mail.Send), so login and
+// sending always work with the base registration.
+const REQUIRED_SCOPES = ["User.Read", "Mail.Send"];
+// Mail.Send.Shared lets the signed-in user send FROM a shared mailbox they have
+// "Send As" / "Send on Behalf" rights to. It is NOT in HEINEKEN's approved
+// permission list, so it is treated as optional: requested best-effort, and if
+// it isn't granted the app silently falls back to sending as the signed-in
+// user (see getToken + sendViaGraph) rather than failing the run.
+const SHARED_SCOPE = "Mail.Send.Shared";
+const FULL_SCOPES = [...REQUIRED_SCOPES, SHARED_SCOPE];
 
 let pca: PublicClientApplication | null = null;
 let configKey = "";
@@ -67,7 +77,7 @@ function cleanAddress(raw: string): string {
 export async function beginLogin(config: GraphConfig): Promise<void> {
   if (!config.clientId) throw new Error("Missing Client ID.");
   const app = await ensureApp(config);
-  await app.loginRedirect({ scopes: SCOPES, prompt: "select_account" });
+  await app.loginRedirect({ scopes: REQUIRED_SCOPES, prompt: "select_account" });
 }
 
 /**
@@ -100,12 +110,22 @@ export async function getToken(): Promise<string> {
   if (!pca) throw new Error("Microsoft connection not initialized.");
   const account = pca.getActiveAccount() ?? pca.getAllAccounts()[0];
   if (!account) throw new Error("No signed-in Microsoft account.");
+  // Best-effort: get a token that also carries Mail.Send.Shared so shared-
+  // mailbox sending works when the tenant has granted it. If that scope isn't
+  // consented, this throws — we swallow it and fall through to the required
+  // scopes so the run still proceeds as the signed-in user.
   try {
-    const r = await pca.acquireTokenSilent({ scopes: SCOPES, account });
+    const r = await pca.acquireTokenSilent({ scopes: FULL_SCOPES, account });
+    return r.accessToken;
+  } catch {
+    /* optional scope unavailable — fall back to the required scopes below */
+  }
+  try {
+    const r = await pca.acquireTokenSilent({ scopes: REQUIRED_SCOPES, account });
     return r.accessToken;
   } catch (e) {
     if (e instanceof InteractionRequiredAuthError) {
-      const r = await pca.acquireTokenPopup({ scopes: SCOPES, account });
+      const r = await pca.acquireTokenPopup({ scopes: REQUIRED_SCOPES, account });
       return r.accessToken;
     }
     throw e;
@@ -175,14 +195,6 @@ export async function sendViaGraph(
   if (cc.length > 0) message.ccRecipients = cc.map((a) => ({ emailAddress: { address: a } }));
   if (bcc.length > 0) message.bccRecipients = bcc.map((a) => ({ emailAddress: { address: a } }));
 
-  // Send FROM a shared mailbox when configured: target that mailbox's sendMail
-  // endpoint and set the From address. Requires Mail.Send.Shared + "Send As".
-  const shared = fromMailbox?.trim();
-  if (shared) message.from = { emailAddress: { address: shared } };
-  const endpoint = shared
-    ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(shared)}/sendMail`
-    : "https://graph.microsoft.com/v1.0/me/sendMail";
-
   const fileAttachments = attachments.map((a) => ({
     "@odata.type": "#microsoft.graph.fileAttachment",
     name: a.name,
@@ -194,56 +206,78 @@ export async function sendViaGraph(
     message.attachments = allAttachments;
   }
 
-  // Graph throttles /me/sendMail (HTTP 429) and may return transient 5xx
-  // errors. Without retries, a fast batch leaves "some sent, some not". Retry
-  // transient failures with backoff, honouring the Retry-After header.
+  // POST the message to one sendMail endpoint, with retries. Graph throttles
+  // sendMail (HTTP 429) and may return transient 5xx errors; without retries a
+  // fast batch leaves "some sent, some not". Retry transient failures with
+  // backoff, honouring the Retry-After header. `status` is returned so the
+  // caller can react to permission failures (e.g. fall back off a shared box).
   const MAX_ATTEMPTS = 4;
-  let lastError = "Send failed.";
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message, saveToSentItems: true }),
-      });
-
-      if (res.ok || res.status === 202) return { ok: true };
-
-      let detail = `Graph error ${res.status}`;
+  async function post(
+    endpoint: string,
+    body: Record<string, unknown>,
+  ): Promise<{ ok: boolean; status?: number; error?: string }> {
+    let lastError = "Send failed.";
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        const data = await res.json();
-        // Surface the Graph error code + message (e.g. "ErrorInvalidRecipients:
-        // …") so the real cause is visible, not just a generic failure.
-        detail = [data?.error?.code, data?.error?.message].filter(Boolean).join(": ") || detail;
-      } catch {
-        /* ignore parse */
-      }
-      lastError = detail;
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ message: body, saveToSentItems: true }),
+        });
 
-      const transient = res.status === 429 || res.status === 503 || res.status === 504;
-      if (transient && attempt < MAX_ATTEMPTS) {
-        const retryAfter = Number(res.headers.get("Retry-After"));
-        const waitMs =
-          Number.isFinite(retryAfter) && retryAfter > 0
-            ? retryAfter * 1000
-            : 1000 * 2 ** (attempt - 1);
-        await new Promise((r) => setTimeout(r, waitMs));
-        continue;
+        if (res.ok || res.status === 202) return { ok: true, status: res.status };
+
+        let detail = `Graph error ${res.status}`;
+        try {
+          const data = await res.json();
+          // Surface the Graph error code + message (e.g. "ErrorInvalidRecipients:
+          // …") so the real cause is visible, not just a generic failure.
+          detail = [data?.error?.code, data?.error?.message].filter(Boolean).join(": ") || detail;
+        } catch {
+          /* ignore parse */
+        }
+        lastError = detail;
+
+        const transient = res.status === 429 || res.status === 503 || res.status === 504;
+        if (transient && attempt < MAX_ATTEMPTS) {
+          const retryAfter = Number(res.headers.get("Retry-After"));
+          const waitMs =
+            Number.isFinite(retryAfter) && retryAfter > 0
+              ? retryAfter * 1000
+              : 1000 * 2 ** (attempt - 1);
+          await new Promise((r) => setTimeout(r, waitMs));
+          continue;
+        }
+        return { ok: false, status: res.status, error: detail };
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : "Network error.";
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)));
+          continue;
+        }
+        return { ok: false, error: lastError };
       }
-      return { ok: false, error: detail };
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : "Network error.";
-      if (attempt < MAX_ATTEMPTS) {
-        await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)));
-        continue;
-      }
-      return { ok: false, error: lastError };
     }
+    return { ok: false, error: lastError };
   }
 
-  return { ok: false, error: lastError };
+  // Send FROM a shared mailbox when configured: target that mailbox's sendMail
+  // endpoint and set the From address. This needs Mail.Send.Shared + "Send As".
+  // That permission is optional (not in HEINEKEN's approved list), so if the
+  // shared send is rejected for lack of authorisation (401/403) we fall back to
+  // sending as the signed-in user rather than failing the whole run.
+  const shared = fromMailbox?.trim();
+  if (shared) {
+    const sharedMessage = { ...message, from: { emailAddress: { address: shared } } };
+    const endpoint = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(shared)}/sendMail`;
+    const r = await post(endpoint, sharedMessage);
+    if (r.ok) return { ok: true };
+    if (r.status !== 401 && r.status !== 403) return { ok: false, error: r.error };
+    // Permission denied for the shared mailbox — fall through to /me/sendMail.
+  }
+
+  return post("https://graph.microsoft.com/v1.0/me/sendMail", message);
 }

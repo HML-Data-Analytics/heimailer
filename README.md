@@ -34,9 +34,13 @@ Open http://localhost:5173/.
 Sending "from your own mailbox" uses Microsoft sign-in (OAuth) — **not** an API key.
 In your Azure app registration:
 
-1. **Authentication → Add a platform → Single-page application (SPA)**
+1. **Authentication → Add a platform → Single-page application (SPA)** — a
+   browser SPA must use the SPA platform, not "Public client (mobile & desktop)".
 2. Redirect URI: `http://localhost:5173`
 3. **API permissions → Microsoft Graph → Delegated:** `Mail.Send`, `User.Read`
+4. _Optional:_ `Mail.Send.Shared` — only needed to send **from a shared mailbox**
+   (Settings → send-from). If it isn't granted, the app falls back to sending as
+   the signed-in user.
 
 Then in the app: **Settings → Microsoft connection**, paste your **Application (client) ID**
 and **Directory (tenant) ID**, and connect. Settings, templates, groups, and history are
