@@ -42,6 +42,44 @@ interface AuthValue {
 
 const AuthContext = createContext<AuthValue | null>(null);
 
+/**
+ * Verify a signed-in email against the Synapse allowlist (mini_mail.user) via
+ * the serverless function. Only enforced in production; dev always passes.
+ * Throws with a user-facing message if the account is not authorised.
+ */
+async function verifyAccess(email: string): Promise<void> {
+  if (!import.meta.env.PROD) return;
+  const res = await fetch("/api/check-access", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!res.ok) {
+    // Surface the server's actual error so connection/config issues are visible.
+    let detail = `HTTP ${res.status}`;
+    try {
+      const data = await res.json();
+      detail = data?.detail || data?.error || detail;
+    } catch {
+      try {
+        const text = await res.text();
+        if (text) detail = text.slice(0, 200);
+      } catch {
+        /* ignore */
+      }
+    }
+    throw new Error(`Access check failed: ${detail}`);
+  }
+
+  const { allowed } = (await res.json()) as { allowed: boolean };
+  if (!allowed) {
+    throw new Error(
+      "Your account is not authorised to use this app. Contact your administrator.",
+    );
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<AuthMode | null>(null);
@@ -68,12 +106,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const u = await graph.completeLogin(ENV_CONFIG);
         if (u) {
-          // Access is governed by the Azure tenant + admin consent; any
-          // signed-in account is allowed through here.
-          if (!cancelled) {
-            store.saveMode("graph");
-            setUser(u);
-            setMode("graph");
+          try {
+            await verifyAccess(u.email);
+            if (!cancelled) {
+              store.saveMode("graph");
+              setUser(u);
+              setMode("graph");
+            }
+          } catch (err) {
+            await graph.disconnect().catch(() => {});
+            store.saveMode(null);
+            if (!cancelled) {
+              setAuthError(err instanceof Error ? err.message : "Sign-in failed.");
+            }
           }
           if (!cancelled) setInitializing(false);
           return;
