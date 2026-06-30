@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
   }
 
   const clientId     = process.env.SYNAPSE_CLIENT_ID;
-  const tenantId     = process.env.VITE_AZURE_TENANT_ID;
+  const tenantId     = process.env.SYNAPSE_TENANT_ID;
   const clientSecret = process.env.SYNAPSE_CLIENT_SECRET;
   const server       = process.env.SYNAPSE_SERVER;
   const database     = process.env.SYNAPSE_DATABASE;
