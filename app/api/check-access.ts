@@ -86,7 +86,8 @@ export default async function handler(req: any, res: any) {
     await pool.close();
 
     const allowed: boolean = (result.recordset[0] as { cnt: number }).cnt > 0;
-    return res.status(200).json({ allowed });
+    console.log(`check-access: email="${email.toLowerCase().trim()}" allowed=${allowed}`);
+    return res.status(200).json({ allowed, checkedEmail: email.toLowerCase().trim() });
 
   } catch (err) {
     console.error("check-access error:", err);
