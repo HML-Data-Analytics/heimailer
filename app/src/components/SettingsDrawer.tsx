@@ -98,7 +98,7 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
               <h3>Send from (shared mailbox)</h3>
               <p>
                 Leave blank to send from your own mailbox. To send from a shared mailbox, enter its
-                address — you must have <b>Send As</b> rights on it.
+                address - you must have <b>Send As</b> rights on it.
               </p>
               <input
                 className="input"

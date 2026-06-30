@@ -27,7 +27,7 @@ export default function RecipientsPanel() {
         </span>
         <div className="card__titles">
           <h2>Recipients</h2>
-          <p>Add people or import a file — edit any cell inline, then send.</p>
+          <p>Add people or import a file - edit any cell inline, then send.</p>
         </div>
         <div className="card__head-actions">
           <GroupMenu />
@@ -223,7 +223,7 @@ function EditableTable({
                     <input
                       className="cell-input"
                       value={r.company ?? ""}
-                      placeholder="—"
+                      placeholder="-"
                       disabled={sending}
                       onFocus={() => setSelectedId(r.id)}
                       onChange={(e) => updateRecipient(r.id, { company: e.target.value || undefined })}
@@ -269,7 +269,7 @@ function sendPill(status: SendStatus, error?: string) {
     case "queued":
       return <span className="pill pill--neutral"><RefreshIcon size={12} /> Queued</span>;
     default:
-      return <span className="pill pill--neutral">—</span>;
+      return <span className="pill pill--neutral">-</span>;
   }
 }
 

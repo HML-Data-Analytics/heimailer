@@ -54,7 +54,7 @@ export default function SignIn() {
         <h1 className="signin__title">HeiMailer</h1>
         <p className="signin__tagline">Send personalized invitations from your own mailbox.</p>
         <p className="signin__summary">
-          Import your guest list, personalize every message, and send individually — each email
+          Import your guest list, personalize every message, and send individually - each email
           arrives as a genuine one-to-one note, never a mass blast.
         </p>
 
@@ -77,9 +77,9 @@ export default function SignIn() {
               )}
             </button>
             {shownError && <div className="signin__error">{shownError}</div>}
-            <button className="signin__demolink" onClick={demo} disabled={busy !== null}>
+            {/* <button className="signin__demolink" onClick={demo} disabled={busy !== null}>
               {busy === "demo" ? "Loading…" : "Explore in demo mode"}
-            </button>
+            </button> */}
           </>
         ) : (
           <>

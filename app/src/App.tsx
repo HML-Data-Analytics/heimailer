@@ -69,7 +69,7 @@ function Workspace() {
         {!isReal && (
           <div className="demo-banner">
             <AlertIcon size={16} />
-            Demo mode — sends are simulated. Connect your Microsoft account in Settings to send for real. Tip:
+            Demo mode - sends are simulated. Connect your Microsoft account in Settings to send for real. Tip:
             include “fail” in an email to preview the failure &amp; retry flow.
           </div>
         )}

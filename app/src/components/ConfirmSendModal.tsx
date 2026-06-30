@@ -59,7 +59,7 @@ export default function ConfirmSendModal({
             <SendIcon size={24} />
           </div>
           <h2>Send to {sendCount} recipient{sendCount === 1 ? "" : "s"}?</h2>
-          <p>Each person receives their own personalized email — one by one, from your mailbox.</p>
+          <p>Each person receives their own personalized email - one by one, from your mailbox.</p>
         </div>
         <div className="console__body">
           <div className="confirm-recap">

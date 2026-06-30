@@ -17,9 +17,9 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: "Missing email" });
   }
 
-  const clientId     = process.env.VITE_AZURE_CLIENT_ID;
+  const clientId     = process.env.SYNAPSE_CLIENT_ID;
   const tenantId     = process.env.VITE_AZURE_TENANT_ID;
-  const clientSecret = process.env.AZURE_CLIENT_SECRET;
+  const clientSecret = process.env.SYNAPSE_CLIENT_SECRET;
   const server       = process.env.SYNAPSE_SERVER;
   const database     = process.env.SYNAPSE_DATABASE;
 

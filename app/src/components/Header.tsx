@@ -59,7 +59,7 @@ export default function Header({
                   {user.name}
                   <span
                     className={`mode-dot ${isReal ? "mode-dot--live" : "mode-dot--demo"}`}
-                    title={isReal ? "Live — real sending" : "Demo — simulated"}
+                    title={isReal ? "Live - real sending" : "Demo - simulated"}
                   />
                 </span>
                 <span className="identity__mail">{user.email}</span>
