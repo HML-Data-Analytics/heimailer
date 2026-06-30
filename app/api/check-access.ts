@@ -64,6 +64,19 @@ export default async function handler(req: any, res: any) {
 
     const { access_token } = (await tokenRes.json()) as { access_token: string };
 
+    // Decode the JWT payload (no verification needed — we just want to log the claims).
+    try {
+      const payload = JSON.parse(Buffer.from(access_token.split(".")[1], "base64url").toString());
+      console.log("check-access: token claims —", {
+        appid: payload.appid,
+        oid:   payload.oid,
+        upn:   payload.upn,   // present only on user (delegated) tokens
+        idtyp: payload.idtyp, // "app" for service principal tokens
+      });
+    } catch {
+      console.warn("check-access: could not decode token payload");
+    }
+
     // 2. Connect to Synapse Dedicated SQL Pool with the AAD token.
     const pool = await sql.connect({
       server,
