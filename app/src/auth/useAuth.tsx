@@ -72,10 +72,10 @@ async function verifyAccess(email: string): Promise<void> {
     throw new Error(`Access check failed: ${detail}`);
   }
 
-  const { allowed, checkedEmail } = (await res.json()) as { allowed: boolean; checkedEmail?: string };
+  const { allowed } = (await res.json()) as { allowed: boolean };
   if (!allowed) {
     throw new Error(
-      `Your account is not authorised to use this app. Contact your administrator. (checked: ${checkedEmail ?? email})`,
+      "Your account is not authorised to use this app. Contact your administrator.",
     );
   }
 }
